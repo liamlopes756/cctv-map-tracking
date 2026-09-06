@@ -1,0 +1,6 @@
+{
+  "rabbit_version": "3.13.0",
+  "exchanges": [],
+  "queues": [],
+  "bindings": []
+}
