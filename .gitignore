@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# .NET
+bin/
+obj/
+TestResults/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vs/
+.vscode/
