@@ -1,5 +1,6 @@
 import time
 from collections.abc import Generator
+from pathlib import Path
 
 import cv2
 from ultralytics import YOLO
@@ -21,6 +22,14 @@ class VideoProcessor:
         self.publisher = publisher
         self.tracker = tracker or Tracker()
         self._detector = YOLO(settings.model_path)
+        self._tracker_config = self._resolve_tracker_config()
+
+    def _resolve_tracker_config(self) -> str:
+        configured_path = Path(self.settings.tracker_config)
+        if configured_path.is_file():
+            return str(configured_path)
+        package_path = Path(__file__).resolve().parent.parent / "tracking" / self.settings.tracker_config
+        return str(package_path) if package_path.is_file() else self.settings.tracker_config
 
     def mjpeg_stream(self) -> Generator[bytes, None, None]:
         capture = cv2.VideoCapture(self.settings.video_source)
@@ -35,6 +44,7 @@ class VideoProcessor:
                         if not capture.set(cv2.CAP_PROP_POS_FRAMES, 0):
                             raise RuntimeError(f"Unable to rewind video source: {self.settings.video_source}")
                         self.tracker.reset()
+                        self._detector.predictor = None
                         continue
                     raise RuntimeError(f"Unable to open video source: {self.settings.video_source}")
 
@@ -67,18 +77,23 @@ class VideoProcessor:
             capture.release()
 
     def _events_for_frame(self, frame, frame_number: int) -> list[TrackEvent]:
-        detections: list[tuple[float, float, float, float, float]] = []
-        results = self._detector.predict(
+        detections: list[tuple[float, float, float, float, float, int]] = []
+        results = self._detector.track(
             frame,
             classes=[0],
             conf=self.settings.detection_confidence,
             device=self.settings.inference_device,
+            tracker=self._tracker_config,
+            persist=True,
             verbose=False,
         )
         for result in results:
-            if result.boxes is None:
+            if result.boxes is None or result.boxes.id is None:
                 continue
-            for box, confidence in zip(result.boxes.xyxy.cpu().tolist(), result.boxes.conf.cpu().tolist()):
+            boxes = result.boxes.xyxy.cpu().tolist()
+            confidences = result.boxes.conf.cpu().tolist()
+            track_ids = result.boxes.id.int().cpu().tolist()
+            for box, confidence, track_id in zip(boxes, confidences, track_ids):
                 x1, y1, x2, y2 = box
                 detections.append(
                     (
@@ -87,6 +102,7 @@ class VideoProcessor:
                         float(x2 - x1),
                         float(y2 - y1),
                         float(confidence),
+                        int(track_id),
                     )
                 )
 

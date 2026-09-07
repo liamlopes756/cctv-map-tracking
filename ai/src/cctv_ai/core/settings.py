@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     model_path: str = "yolo11n.pt"
     detection_confidence: float = 0.35
     inference_device: str = "cpu"
+    tracker_config: str = "bytetrack.yaml"
 
     model_config = SettingsConfigDict(env_prefix="AI_", env_file=".env")
 
