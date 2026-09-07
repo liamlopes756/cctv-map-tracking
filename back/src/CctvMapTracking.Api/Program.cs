@@ -1,10 +1,19 @@
 using CctvMapTracking.Api.Contracts;
+using CctvMapTracking.Api.Infrastructure.Messaging;
+using CctvMapTracking.Api.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("RabbitMQ"));
+builder.Services.Configure<PostgresOptions>(options =>
+{
+    options.ConnectionString = builder.Configuration.GetConnectionString("Postgres") ?? string.Empty;
+});
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddScoped<ITrackEventRepository, PostgresTrackEventRepository>();
+builder.Services.AddHostedService<RabbitMqTrackEventConsumer>();
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -28,8 +37,7 @@ app.UseCors();
 app.MapControllers();
 
 app.MapGet("/health", () => Results.Ok(new HealthResponse("ok", "back")))
-    .WithName("Health")
-    .WithOpenApi();
+    .WithName("Health");
 
 app.Run();
 

@@ -1,0 +1,112 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cctv-postgres
+    environment:
+      POSTGRES_DB: cctv_map_tracking
+      POSTGRES_USER: cctv
+      POSTGRES_PASSWORD: cctv
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cctv -d cctv_map_tracking"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: cctv-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: cctv
+      RABBITMQ_DEFAULT_PASS: cctv
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  back:
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+    container_name: cctv-back
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=cctv_map_tracking;Username=cctv;Password=cctv
+      RabbitMQ__Url: amqp://cctv:cctv@rabbitmq:5672/
+      RabbitMQ__Exchange: cctv.tracking
+      RabbitMQ__Queue: track-events
+      RabbitMQ__RoutingKey: track.events
+      Cors__AllowedOrigins__0: http://localhost:5173
+      Cors__AllowedOrigins__1: http://localhost:8088
+    ports:
+      - "5020:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    container_name: cctv-ai
+    environment:
+      AI_RABBITMQ_URL: amqp://cctv:cctv@rabbitmq:5672/
+      AI_RABBITMQ_EXCHANGE: cctv.tracking
+      AI_RABBITMQ_QUEUE: track-events
+      AI_RABBITMQ_ROUTING_KEY: track.events
+      AI_CAMERA_ID: camera-01
+      AI_VIDEO_SOURCE: /video/input.mp4
+      AI_MODEL_PATH: yolo11n.pt
+      AI_DETECTION_CONFIDENCE: "0.35"
+      AI_INFERENCE_DEVICE: cpu
+      AI_RELOAD: "false"
+    ports:
+      - "8010:8010"
+    volumes:
+      - ./samples:/video:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  front:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:5020
+        VITE_AI_STREAM_URL: http://localhost:8010/stream.mjpg
+    container_name: cctv-front
+    ports:
+      - "8088:80"
+    depends_on:
+      back:
+        condition: service_healthy
+      ai:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  rabbitmq_data:

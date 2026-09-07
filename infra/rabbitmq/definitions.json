@@ -1,6 +1,33 @@
 {
   "rabbit_version": "3.13.0",
-  "exchanges": [],
-  "queues": [],
-  "bindings": []
+  "exchanges": [
+    {
+      "name": "cctv.tracking",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "track-events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "cctv.tracking",
+      "vhost": "/",
+      "destination": "track-events",
+      "destination_type": "queue",
+      "routing_key": "track.events",
+      "arguments": {}
+    }
+  ]
 }

@@ -8,6 +8,7 @@ class HealthResponse(BaseModel):
 
 class TrackEvent(BaseModel):
     camera_id: str
+    source_uri: str
     track_id: str
     frame_number: int
     x: float

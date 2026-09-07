@@ -22,3 +22,5 @@ TestResults/
 # IDE
 .vs/
 .vscode/
+
+.docs/

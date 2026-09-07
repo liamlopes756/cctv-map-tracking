@@ -11,6 +11,17 @@ Monorepo para uma plataforma de monitoramento por video com deteccao, tracking e
 
 ## Execucao inicial
 
+Para subir a aplicação completa:
+
+1. Coloque um vídeo real em `samples/input.mp4`.
+2. If this is not the first run, recreate the local infrastructure volumes with
+   `docker compose down -v`.
+3. Execute `docker compose up --build`.
+4. Abra `http://localhost:8088`.
+
+O serviço de IA não gera frames substitutos: sem `samples/input.mp4`, o stream falha explicitamente.
+A imagem da IA instala a versão CPU-only do PyTorch e baixa o modelo YOLO uma única vez durante o build.
+
 Cada modulo possui um `README.md` proprio com comandos e organizacao interna.
 
 Fluxo recomendado para desenvolvimento local:
