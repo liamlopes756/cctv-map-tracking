@@ -11,12 +11,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cctv -d cctv_map_tracking"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: cctv-rabbitmq
@@ -28,12 +22,6 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-
   back:
     build:
       context: ./back
@@ -51,16 +39,9 @@ services:
       Cors__AllowedOrigins__1: http://localhost:8088
     ports:
       - "5020:8080"
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
     depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      - postgres
+      - rabbitmq
 
   ai:
     build:
@@ -82,14 +63,8 @@ services:
       - "8010:8010"
     volumes:
       - ./samples:/video:ro
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/health')"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
     depends_on:
-      rabbitmq:
-        condition: service_healthy
+      - rabbitmq
 
   front:
     build:
@@ -102,10 +77,8 @@ services:
     ports:
       - "8088:80"
     depends_on:
-      back:
-        condition: service_healthy
-      ai:
-        condition: service_healthy
+      - back
+      - ai
 
 volumes:
   postgres_data:
